@@ -6,6 +6,23 @@ load_dotenv()
 
 news_api_key = os.getenv("NEWS_API_KEY")
 
-response = requests.get(
-    f"https://newsapi.org/v2/everything?q=*&from=2026-06-22&sortBy=publishedAt&apiKey={news_api_key}"
-)
+
+def get_latest_news(date):
+    """
+    Fetch latest news from the News API
+
+    Parameters:
+        date: date from which news to be fetched (YYYY-MM-DD)
+
+    Returns:
+        list: list of news articles from the specified date
+    """
+
+    response = requests.get(
+        f"https://newsapi.org/v2/everything?q=*&from={date}&sortBy=publishedAt&apiKey={news_api_key}&pageSize=50"
+    )
+
+    if response.status_code == 200:
+        return response.json()["articles"]
+    else:
+        return []
