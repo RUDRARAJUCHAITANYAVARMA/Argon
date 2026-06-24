@@ -7,9 +7,9 @@ load_dotenv()
 news_api_key = os.getenv("NEWS_API_KEY")
 
 
-def get_latest_news(date):
+def get_top_headlines(date):
     """
-    Fetch latest news from the News API
+    Fetch top headlines from the News API
 
     Parameters:
         date: date from which news to be fetched (YYYY-MM-DD)
