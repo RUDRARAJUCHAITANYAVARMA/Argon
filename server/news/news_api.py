@@ -19,10 +19,10 @@ def get_top_headlines(date):
     """
 
     response = requests.get(
-        f"https://newsapi.org/v2/everything?q=*&from={date}&sortBy=publishedAt&apiKey={news_api_key}&pageSize=50"
+        f"https://newsapi.org/v2/everything?q=world&from={date}&sortBy=popularity&pageSize=100&apiKey={news_api_key}"
     )
 
     if response.status_code == 200:
         return response.json()["articles"]
     else:
-        return []
+        return f"Failed to fetch news with exception {response.json()['message']}"
