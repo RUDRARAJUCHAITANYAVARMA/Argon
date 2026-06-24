@@ -3,6 +3,7 @@ from datetime import timedelta
 from datetime import datetime
 from news.news_api import get_top_headlines
 from helpers.news_processor import clean_news_data
+from database.store_database import store_news_in_db
 from database.database_creation import initialize_article_db
 
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +33,11 @@ def pipeline():
         logger.info("Clenaing the raw data")
         cleaned_news = clean_news_data(news)
         logger.info("Successfully cleaned the raw data")
+
+        # Stage 4 - Storing the data in the database
+        logger.info("Storing the data in the database")
+        store_news_in_db(cleaned_news)
+        logger.info("Successfully stored the data in the database")
 
     except Exception as e:
         logger.exception("Pipeline Failed with Exception : {e}")

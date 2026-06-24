@@ -1,3 +1,10 @@
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+logger = logging.getLogger(__name__)
+
+
 def clean_news_data(news):
     """
     Helps in cleaning the news data
@@ -10,14 +17,17 @@ def clean_news_data(news):
     """
 
     news_data = []
-
-    for article in news:
-        news_data.append(
-            {
-                "title": article.get("title"),
-                "description": article.get("description"),
-                "content": article.get("content"),
-            }
-        )
+    try:
+        for article in news:
+            news_data.append(
+                {
+                    "title": article.get("title"),
+                    "description": article.get("description"),
+                    "content": article.get("content"),
+                }
+            )
+    except Exception as e:
+        logger.exception(f"Failed to store news in database : {e}")
+        raise
 
     return news_data
