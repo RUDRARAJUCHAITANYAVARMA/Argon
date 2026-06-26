@@ -17,13 +17,19 @@ client = Groq(api_key=os.getenv("LLM_API_KEY"))
 from helpers.news_processor import clean_json_string
 
 
-def retrieve_news_from_db(db_name="news.db"):
+def fetch_article_titles(db_name="news.db"):
     """
-    Retrieves all the titles from the database and send it to llm with its id and ask the llm for top 10 titles which will top 10 news globally
+    Retrieve the ID and title of every article stored in the database.
 
+    These titles are later sent to the LLM to identify the most important
+    global news stories.
+
+    Args:
+        db_name (str): SQLite database file.
 
     Returns:
-        dict: Dictionary of news articles
+        list[tuple[int, str]]:
+            List of (article_id, title).
     """
 
     news = []
@@ -45,7 +51,22 @@ def retrieve_news_from_db(db_name="news.db"):
         raise
 
 
-def retrieve_top_10_news_using_llm(news):
+def rank_top_news_articles(news):
+    """
+    Use the LLM to identify the ten most important global news stories.
+
+    The LLM ranks the supplied article titles based on global significance,
+    uniqueness, and overall newsworthiness.
+
+    Args:
+        article_titles (list):
+            List of article IDs and titles.
+
+    Returns:
+        str:
+            Raw JSON response produced by the LLM.
+    """
+
     completion = client.chat.completions.create(
         model="meta-llama/llama-4-scout-17b-16e-instruct",
         messages=[
@@ -71,16 +92,23 @@ def retrieve_top_10_news_using_llm(news):
     return "".join(chunks)
 
 
-def fetch_articles_from_db(top_10_news, db_name="news.db"):
+def fetch_article_details(top_10_news, db_name="news.db"):
     """
-    This function is used to fetch the top 10 news articles from the database and return them in a JSON format
+    Retrieve the complete article information for the selected top news.
+
+    Matches the LLM-selected titles with records stored in the database and
+    enriches them with their description and full content.
 
     Args:
-        top_10_news (dict): Dictionary of top 10 news articles
-        db_name (str, optional): Name of the database. Defaults to "news.db".
+        top_news (list):
+            Ranked articles returned by the LLM.
+
+        db_name (str):
+            SQLite database file.
 
     Returns:
-        dict: Dictionary of top 10 news articles
+        list[dict]:
+            List of complete article objects.
     """
 
     logger.info("Fetching top 10 news articles from the database")
@@ -118,15 +146,20 @@ def fetch_articles_from_db(top_10_news, db_name="news.db"):
     return articles
 
 
-def artical_rephraser(artical):
+def summarize_articles(artical):
     """
-    This function is used to rephrase the article
+    Generate concise, rewritten versions of each selected article.
+
+    Each article is passed to the LLM, which produces a short,
+    content-dense summary suitable for a news digest.
 
     Args:
-        artical (dict): Dictionary of the article
+        articles (list):
+            Complete article objects.
 
     Returns:
-        dict: Dictionary of the rephrased article
+        dict:
+            Dictionary of summarized articles keyed by title.
     """
 
     logger.info("Rephrasing the article")
@@ -160,20 +193,52 @@ def artical_rephraser(artical):
     return rephrased_articals
 
 
-def fectch_top_news_articals(db_name="news.db"):
+def get_top_news_digest(db_name="news.db"):
     """
-    This function is used to fetch the top 10 news articles from the database and return them in a JSON format
+    Execute the complete news processing pipeline.
+
+    The pipeline performs the following steps:
+        1. Retrieve article titles from the database.
+        2. Rank the most important stories using the LLM.
+        3. Fetch complete article details.
+        4. Summarize each article into a concise news digest.
+
+    Args:
+        db_name (str):
+            SQLite database file.
 
     Returns:
-        dict: Dictionary of top 10 news articles
+        dict:
+            Final summarized news digest.
     """
 
-    logger.info("Fetching top 10 news articles from the database")
+    logger.info("=" * 60)
+    logger.info("Starting LLM News Pipeline")
+    logger.info("=" * 60)
 
-    news = retrieve_news_from_db()
-    top_10_news_raw = retrieve_top_10_news_using_llm(news)
-    top_10_news = json.loads(clean_json_string(top_10_news_raw), strict=False)
-    final_articals = fetch_articles_from_db(top_10_news, db_name)
-    rephrased_articals = artical_rephraser(final_articals)
+    # Stage 1: Load article titles
+    logger.info("[Stage 1] Loading article titles from the database...")
+    article_titles = fetch_article_titles(db_name)
+    logger.info("[Stage 1] Loaded %d article titles.", len(article_titles))
 
-    return rephrased_articals
+    # Stage 2: Select top news
+    logger.info("[Stage 2] Selecting the top 10 news stories using the LLM...")
+    top_news_raw = rank_top_news_articles(article_titles)
+    top_news = json.loads(clean_json_string(top_news_raw), strict=False)
+    logger.info("[Stage 2] Successfully selected %d news stories.", len(top_news))
+
+    # Stage 3: Load complete articles
+    logger.info("[Stage 3] Fetching complete article details...")
+    selected_articles = fetch_article_details(top_news, db_name)
+    logger.info("[Stage 3] Retrieved %d complete articles.", len(selected_articles))
+
+    # Stage 4: Generate summaries
+    logger.info("[Stage 4] Generating concise article summaries...")
+    summarized_articles = summarize_articles(selected_articles)
+    logger.info("[Stage 4] Generated %d summarized articles.", len(summarized_articles))
+
+    logger.info("=" * 60)
+    logger.info("LLM News Pipeline completed successfully.")
+    logger.info("=" * 60)
+
+    return summarized_articles

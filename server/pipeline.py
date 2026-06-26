@@ -5,7 +5,7 @@ from datetime import datetime
 from news.news_api import get_top_headlines
 from helpers.news_processor import clean_news_data
 from database.store_database import store_news_in_db
-from models.news_fetcher import fectch_top_news_articals
+from models.news_fetcher import get_top_news_digest
 from database.database_creation import initialize_article_db
 
 logging.basicConfig(level=logging.INFO)
@@ -21,35 +21,48 @@ def pipeline():
 
     try:
 
-        # Stage 1 - Retrieving the news
-        logger.info(f"Fetching news for date : {date}")
+        logger.info("=" * 60)
+        logger.info("Starting News Processing Pipeline")
+        logger.info("=" * 60)
+
+        # Stage 1: Retrieve news
+        logger.info(
+            "[Stage 1] Fetching top headlines for %s...", date.strftime("%Y-%m-%d")
+        )
         news = get_top_headlines(date)
-        logger.info(f"Successfully fetched {len(news)} news")
+        logger.info("[Stage 1] Retrieved %d news articles.", len(news))
 
-        # Stage 2 - Initializing the database
-        logger.info("Initializing the database")
+        # Stage 2: Initialize database
+        logger.info("[Stage 2] Initializing the article database...")
         initialize_article_db()
-        logger.info("Successfully initialized the database")
+        logger.info("[Stage 2] Database initialized successfully.")
 
-        # Stage 3 - Cleaning the raw data
-        logger.info("Clenaing the raw data")
+        # Stage 3: Clean raw news data
+        logger.info("[Stage 3] Cleaning retrieved news articles...")
         cleaned_news = clean_news_data(news)
-        logger.info("Successfully cleaned the raw data")
+        logger.info("[Stage 3] Cleaned %d news articles.", len(cleaned_news))
 
-        # Stage 4 - Storing the data in the database
-        logger.info("Storing the data in the database")
+        # Stage 4: Store articles
+        logger.info("[Stage 4] Storing cleaned articles in the database...")
         store_news_in_db(cleaned_news)
-        logger.info("Successfully stored the data in the database")
+        logger.info("[Stage 4] Successfully stored %d articles.", len(cleaned_news))
 
-        # Stage 5 - Retrieve Top 10 News Using LLM
-        logger.info("Retrieving top 10 news using LLM")
-        top_10_news = fectch_top_news_articals()
-        logger.info("Successfully retrieved top 10 news")
+        # Stage 5: Generate news digest
+        logger.info("[Stage 5] Generating the top news digest using the LLM...")
+        summarized_articles = get_top_news_digest()
+        logger.info(
+            "[Stage 5] Generated %d summarized news articles.",
+            len(summarized_articles),
+        )
 
-        # Stage 6 - Removing the database after the completion of the pipeline
-        logger.info("Removing the database after the completion of the pipeline")
+        # Stage 6: Clean up
+        logger.info("[Stage 6] Removing the temporary database...")
         os.remove("news.db")
-        logger.info("Successfully removed the database")
+        logger.info("[Stage 6] Temporary database removed.")
+
+        logger.info("=" * 60)
+        logger.info("News Processing Pipeline completed successfully.")
+        logger.info("=" * 60)
 
     except Exception as e:
         logger.exception("Pipeline Failed with Exception : {e}")
