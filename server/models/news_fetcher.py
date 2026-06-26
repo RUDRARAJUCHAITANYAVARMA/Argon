@@ -1,8 +1,9 @@
 import os
 import sqlite3
 import logging
+import json
 from dotenv import load_dotenv
-from models.prompts import TOP_10_NEWS_RETRIEVAL_PROMPT
+from models.prompts import TOP_10_NEWS_RETRIEVAL_PROMPT, ARTICLE_SUMMARIZATION_PROMPT
 from groq import Groq
 
 load_dotenv()
@@ -23,7 +24,7 @@ def retrieve_news_from_db(db_name="news.db"):
         dict: Dictionary of news articles
     """
 
-    news = {}
+    news = []
 
     try:
         conn = sqlite3.connect(db_name)
@@ -32,8 +33,8 @@ def retrieve_news_from_db(db_name="news.db"):
         cursor.execute("SELECT id, title FROM articles")
         articles = cursor.fetchall()
 
-        for article_id, title in articles:
-            news[article_id] = title
+        for title in articles:
+            news.append(title)
 
         return news
 
@@ -43,6 +44,7 @@ def retrieve_news_from_db(db_name="news.db"):
 
 
 def retrieve_top_10_news_using_llm(news):
+    top_10_news = {}
     completion = client.chat.completions.create(
         model="meta-llama/llama-4-scout-17b-16e-instruct",
         messages=[
@@ -61,10 +63,112 @@ def retrieve_top_10_news_using_llm(news):
     )
 
     for chunk in completion:
-        print(chunk.choices[0].delta.content or "", end="")
+        top_10_news = top_10_news + chunk.choices[0].delta.content or ""
+    return top_10_news
+
+
+def fetch_articles_from_db(top_10_news, db_name="news.db"):
+    """
+    This function is used to fetch the top 10 news articles from the database and return them in a JSON format
+
+    Args:
+        top_10_news (dict): Dictionary of top 10 news articles
+        db_name (str, optional): Name of the database. Defaults to "news.db".
+
+    Returns:
+        dict: Dictionary of top 10 news articles
+    """
+
+    logger.info("Fetching top 10 news articles from the database")
+
+    conn = sqlite3.connect(db_name)
+    cursor = conn.cursor()
+
+    articles = []
+
+    for item in top_10_news:
+        cursor.execute(
+            """
+            SELECT id, title, description, content
+            FROM articles
+            WHERE title = ?
+            """,
+            (item["title"],),
+        )
+
+        row = cursor.fetchone()
+
+        if row:
+            articles.append(
+                {
+                    "rank": item["rank"],
+                    "reason": item["reason"],
+                    "id": row[0],
+                    "title": row[1],
+                    "description": row[2],
+                    "content": row[3],
+                }
+            )
+
+    conn.close()
+    return articles
+
+
+def artical_rephraser(artical):
+    """
+    This function is used to rephrase the article
+
+    Args:
+        artical (dict): Dictionary of the article
+
+    Returns:
+        dict: Dictionary of the rephrased article
+    """
+
+    logger.info("Rephrasing the article")
+
+    rephrased_articals = {}
+
+    for artical in artical:
+        completion = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[
+                {
+                    "role": "user",
+                    "content": ARTICLE_SUMMARIZATION_PROMPT.replace(
+                        "{{ARTICAL}}", str(artical)
+                    ),
+                }
+            ],
+            temperature=1,
+            max_completion_tokens=1024,
+            top_p=1,
+            stream=True,
+            stop=None,
+        )
+
+        rephrased_artical = json.loads(completion)
+
+        if rephrased_artical["title"] not in rephrased_articals:
+            rephrased_articals[rephrased_artical["title"]] = rephrased_artical
+
+    return rephrased_articals
 
 
 def fectch_top_news_articals(db_name="news.db"):
+    """
+    This function is used to fetch the top 10 news articles from the database and return them in a JSON format
+
+    Returns:
+        dict: Dictionary of top 10 news articles
+    """
+
+    logger.info("Fetching top 10 news articles from the database")
 
     news = retrieve_news_from_db()
-    retrieve_top_10_news_using_llm(news)
+    top_10_news = retrieve_top_10_news_using_llm(news)
+    top_10_news = json.loads(top_10_news)
+    final_articals = fetch_articles_from_db(top_10_news, db_name)
+    rephrased_articals = artical_rephraser(final_articals)
+
+    return rephrased_articals

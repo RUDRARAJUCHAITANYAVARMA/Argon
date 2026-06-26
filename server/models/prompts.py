@@ -93,4 +93,50 @@ Return the result in the following JSON format:
 News Articles:
 
 {{NEWS_LIST}}
+
+NOTE - 
+**OUTPUT SHOULD ONLY BE JSON** No Extra Text**
+** Title Should be same as input title, dont change the title**
+"""
+
+
+ARTICLE_SUMMARIZATION_PROMPT = """
+You are an expert global news editor.
+
+You will receive a news article containing:
+- Title
+- Description
+- Content
+
+Your task is to rewrite the article into a concise, information-dense news brief.
+
+## Requirements
+
+- Preserve all important facts.
+- Do NOT invent or assume any information.
+- Combine information from the title, description, and content.
+- Remove repetition, filler, advertisements, promotional text, and clickbait.
+- Use a neutral, professional journalistic tone.
+- The summary must be complete and self-contained.
+- The reader should understand the full story without needing the original article.
+- The summary must be **at most 3 sentences**.
+- Every sentence should contain meaningful information.
+- Prioritize:
+  - Who
+  - What happened
+  - Where (if available)
+  - When (if available)
+  - Why it matters
+  - Important numbers, dates, or outcomes
+
+## Output Format
+
+Return ONLY valid JSON.
+
+```json
+{
+  "title": "<original title>",
+  "summary": "<3-sentence information-dense summary>"
+}
+{{ARTICAL}}
 """
