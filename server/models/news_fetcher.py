@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 client = Groq(api_key=os.getenv("LLM_API_KEY"))
 
+from helpers.news_processor import clean_json_string
+
 
 def retrieve_news_from_db(db_name="news.db"):
     """
@@ -44,7 +46,6 @@ def retrieve_news_from_db(db_name="news.db"):
 
 
 def retrieve_top_10_news_using_llm(news):
-    top_10_news = {}
     completion = client.chat.completions.create(
         model="meta-llama/llama-4-scout-17b-16e-instruct",
         messages=[
@@ -62,9 +63,12 @@ def retrieve_top_10_news_using_llm(news):
         stop=None,
     )
 
+    chunks = []
     for chunk in completion:
-        top_10_news = top_10_news + chunk.choices[0].delta.content or ""
-    return top_10_news
+        content = chunk.choices[0].delta.content
+        if content:
+            chunks.append(content)
+    return "".join(chunks)
 
 
 def fetch_articles_from_db(top_10_news, db_name="news.db"):
@@ -143,11 +147,12 @@ def artical_rephraser(artical):
             temperature=1,
             max_completion_tokens=1024,
             top_p=1,
-            stream=True,
+            stream=False,
             stop=None,
         )
 
-        rephrased_artical = json.loads(completion)
+        content = clean_json_string(completion.choices[0].message.content)
+        rephrased_artical = json.loads(content, strict=False)
 
         if rephrased_artical["title"] not in rephrased_articals:
             rephrased_articals[rephrased_artical["title"]] = rephrased_artical
@@ -166,8 +171,8 @@ def fectch_top_news_articals(db_name="news.db"):
     logger.info("Fetching top 10 news articles from the database")
 
     news = retrieve_news_from_db()
-    top_10_news = retrieve_top_10_news_using_llm(news)
-    top_10_news = json.loads(top_10_news)
+    top_10_news_raw = retrieve_top_10_news_using_llm(news)
+    top_10_news = json.loads(clean_json_string(top_10_news_raw), strict=False)
     final_articals = fetch_articles_from_db(top_10_news, db_name)
     rephrased_articals = artical_rephraser(final_articals)
 

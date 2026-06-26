@@ -46,8 +46,6 @@ def pipeline():
         top_10_news = fectch_top_news_articals()
         logger.info("Successfully retrieved top 10 news")
 
-        print("top - 10 News", top_10_news)
-
         # Stage 6 - Removing the database after the completion of the pipeline
         logger.info("Removing the database after the completion of the pipeline")
         os.remove("news.db")
