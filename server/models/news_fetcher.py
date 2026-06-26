@@ -143,6 +143,7 @@ def fetch_article_details(top_10_news, db_name="news.db"):
             )
 
     conn.close()
+    logger.info("Raw Top 10 Articals - \n %s" % articles)
     return articles
 
 
@@ -185,6 +186,7 @@ def summarize_articles(artical):
         )
 
         content = clean_json_string(completion.choices[0].message.content)
+        logger.info("Raw Summarized Article : %s" % content)
         rephrased_artical = json.loads(content, strict=False)
 
         if rephrased_artical["title"] not in rephrased_articals:

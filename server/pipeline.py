@@ -6,6 +6,7 @@ from news.news_api import get_top_headlines
 from helpers.news_processor import clean_news_data
 from database.store_database import store_news_in_db
 from models.news_fetcher import get_top_news_digest
+from emails.email_pipeline import email_service_pipeline
 from database.database_creation import initialize_article_db
 
 logging.basicConfig(level=logging.INFO)
@@ -55,10 +56,15 @@ def pipeline():
             len(summarized_articles),
         )
 
-        # Stage 6: Clean up
-        logger.info("[Stage 6] Removing the temporary database...")
+        # Stage 6: Sending Email to subscribed users
+        logger.info("[Stage 6] Sending Email to subscribed users...")
+        email_service_pipeline(summarized_articles)
+        logger.info("[Stage 6] Successfully sent email to subscribed users.")
+
+        # Stage 7: Clean up
+        logger.info("[Stage 7] Removing the temporary database...")
         os.remove("news.db")
-        logger.info("[Stage 6] Temporary database removed.")
+        logger.info("[Stage 7] Temporary database removed.")
 
         logger.info("=" * 60)
         logger.info("News Processing Pipeline completed successfully.")
